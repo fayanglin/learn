@@ -1,0 +1,415 @@
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index e879a75..a09ab12 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -56,7 +56,7 @@
+     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
+-
++    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+     <!-- For PBAP Owner Vcard Info -->
+     <uses-permission android:name="android.permission.READ_PROFILE"/>
+     <application
+diff --git a/res/values/config.xml b/res/values/config.xml
+index f2b4ebb..4534813 100644
+--- a/res/values/config.xml
++++ b/res/values/config.xml
+@@ -13,8 +13,8 @@
+    limitations under the License.
+ -->
+ <resources>
+-    <bool name="profile_supported_a2dp">true</bool>
+-    <bool name="profile_supported_a2dp_sink">false</bool>
++    <bool name="profile_supported_a2dp">false</bool>
++    <bool name="profile_supported_a2dp_sink">true</bool>
+     <bool name="profile_supported_hdp">true</bool>
+     <bool name="profile_supported_hs_hfp">true</bool>
+     <bool name="profile_supported_hfpclient">false</bool>
+@@ -26,5 +26,5 @@
+     <bool name="pbap_include_photos_in_vcard">false</bool>
+     <bool name="pbap_use_profile_for_owner_vcard">true</bool>
+     <bool name="profile_supported_map">true</bool>
+-    <bool name="profile_supported_avrcp_controller">false</bool>
++    <bool name="profile_supported_avrcp_controller">true</bool>
+ </resources>
+diff --git a/src/com/android/bluetooth/a2dp/A2dpSinkStateMachine.java b/src/com/android/bluetooth/a2dp/A2dpSinkStateMachine.java
+old mode 100644
+new mode 100755
+index d57a0ca..3948d8f
+--- a/src/com/android/bluetooth/a2dp/A2dpSinkStateMachine.java
++++ b/src/com/android/bluetooth/a2dp/A2dpSinkStateMachine.java
+@@ -38,6 +38,7 @@ import android.bluetooth.IBluetooth;
+ import android.content.Context;
+ import android.media.AudioFormat;
+ import android.media.AudioManager;
++import android.media.AudioManager.OnAudioFocusChangeListener;
+ import android.os.Handler;
+ import android.os.Message;
+ import android.os.ParcelUuid;
+@@ -59,9 +60,36 @@ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.HashMap;
+ import java.util.Set;
++import android.media.AudioFormat;
++import android.media.AudioRecord;
++import android.media.AudioTrack;
++import android.media.MediaRecorder.AudioSource;
++import java.io.FileOutputStream;   
++import java.io.File;  
++import java.io.FileNotFoundException;
++import java.io.IOException;
++
++import java.util.concurrent.locks.Lock;  
++import java.util.concurrent.locks.ReentrantLock;
++
+ 
+ final class A2dpSinkStateMachine extends StateMachine {
+-    private static final boolean DBG = false;
++    private static final boolean DBG = true;
++
++	private AudioRecord recorder;
++	private AudioTrack player;
++	private int recorder_buf_size;
++	private int player_buf_size;
++	private boolean mThreadExitFlag = false;
++	private boolean isPlaying = false;
++
++	private static final int BUFFER_LEN = 256;
++	byte[][] buffer;
++	private int[] buflen = new int[BUFFER_LEN];
++    private int bufferRecPoint = 0;
++	private int bufferPlayPoint = 0;
++	private Lock lock = new ReentrantLock();
++	private int currentSamprate = 44100;
+ 
+     static final int CONNECT = 1;
+     static final int DISCONNECT = 2;
+@@ -138,6 +166,65 @@ final class A2dpSinkStateMachine extends StateMachine {
+         mIntentBroadcastHandler = new IntentBroadcastHandler();
+ 
+         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
++		recorder_buf_size = AudioRecord.getMinBufferSize(currentSamprate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
++        player_buf_size = AudioTrack.getMinBufferSize(currentSamprate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
++
++		buffer = new byte[BUFFER_LEN][recorder_buf_size];
++    }
++    private void cleanAudioTrack()
++    {
++        audioPause();
++        mThreadExitFlag = true;
++        if (recorder != null) {
++            recorder.release();
++            recorder = null;
++        }
++        if (player != null) {
++            player.release();
++            player = null;
++        }
++    }
++    private void initAudioTrack()
++    {
++        if (recorder == null) {
++            recorder = new AudioRecord(11/*AudioSource.DEFAULT*/,
++                44100,
++                AudioFormat.CHANNEL_IN_STEREO,
++                AudioFormat.ENCODING_PCM_16BIT,
++                recorder_buf_size
++                );
++        }
++
++        if (player == null) {
++            player = new AudioTrack(AudioManager.STREAM_MUSIC,
++                44100,
++                AudioFormat.CHANNEL_OUT_STEREO,
++                AudioFormat.ENCODING_PCM_16BIT,
++                player_buf_size,
++                AudioTrack.MODE_STREAM
++                );
++        }
++    }
++    private void audioPlay()
++    {
++        
++        if (isPlaying == false) {
++            isPlaying = true;
++            mThreadExitFlag = false;
++			bufferRecPoint = 0;
++			bufferPlayPoint = 0;
++            new RecordThread().start();
++			new PlayerThread().start();
++        }
++    }
++    private void audioPause()
++    {
++        if (isPlaying == true) {
++            isPlaying = false;
++            mThreadExitFlag = true;
++            recorder.stop();
++            player.stop();
++        }
+     }
+ 
+     static A2dpSinkStateMachine make(A2dpSinkService svc, Context context) {
+@@ -167,6 +254,8 @@ final class A2dpSinkStateMachine extends StateMachine {
+         @Override
+         public void enter() {
+             log("Enter Disconnected: " + getCurrentMessage().what);
++            cleanAudioTrack();
++            
+         }
+ 
+         @Override
+@@ -477,6 +566,7 @@ final class A2dpSinkStateMachine extends StateMachine {
+             // Upon connected, the audio starts out as stopped
+             broadcastAudioState(mCurrentDevice, BluetoothA2dpSink.STATE_NOT_PLAYING,
+                                 BluetoothA2dpSink.STATE_PLAYING);
++		//initAudioTrack();
+         }
+ 
+         @Override
+@@ -576,15 +666,23 @@ final class A2dpSinkStateMachine extends StateMachine {
+                                                            mCurrentDevice);
+                 return;
+             }
++			loge("Audio State Device: " + device + "  state: " + state);
+             switch (state) {
+                 case AUDIO_STATE_STARTED:
+-                    broadcastAudioState(device, BluetoothA2dpSink.STATE_PLAYING,
+-                                        BluetoothA2dpSink.STATE_NOT_PLAYING);
++                     broadcastAudioState(device, BluetoothA2dpSink.STATE_PLAYING,
++                           BluetoothA2dpSink.STATE_NOT_PLAYING);
++                     mAudioManager.requestAudioFocus(mAudioFocusListener, AudioManager.STREAM_MUSIC,
++                           AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
++                     audioPlay();
++
+                     break;
+                 case AUDIO_STATE_REMOTE_SUSPEND:
+                 case AUDIO_STATE_STOPPED:
+-                    broadcastAudioState(device, BluetoothA2dpSink.STATE_NOT_PLAYING,
+-                                        BluetoothA2dpSink.STATE_PLAYING);
++                       broadcastAudioState(device, BluetoothA2dpSink.STATE_NOT_PLAYING,
++                            BluetoothA2dpSink.STATE_PLAYING);
++                       mAudioManager.abandonAudioFocus(mAudioFocusListener);
++                       audioPause();
++                 
+                     break;
+                 default:
+                   loge("Audio State Device: " + device + " bad state: " + state);
+@@ -595,6 +693,14 @@ final class A2dpSinkStateMachine extends StateMachine {
+ 
+     private void processAudioConfigEvent(BluetoothAudioConfig audioConfig, BluetoothDevice device) {
+         mAudioConfigs.put(device, audioConfig);
++		int lastSamprate = currentSamprate;
++		currentSamprate = audioConfig.getSampleRate();
++		if(lastSamprate != currentSamprate){
++			recorder_buf_size = AudioRecord.getMinBufferSize(currentSamprate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
++	        player_buf_size = AudioTrack.getMinBufferSize(currentSamprate, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
++			buffer = new byte[BUFFER_LEN][recorder_buf_size];
++		}
++		loge("processAudioConfigEvent samprate: " + currentSamprate);
+         broadcastAudioConfig(device, audioConfig);
+     }
+ 
+@@ -693,7 +799,8 @@ final class A2dpSinkStateMachine extends StateMachine {
+     }
+ 
+     private void broadcastAudioState(BluetoothDevice device, int state, int prevState) {
+-        Intent intent = new Intent(BluetoothA2dpSink.ACTION_PLAYING_STATE_CHANGED);
++        //Intent intent = new Intent(BluetoothA2dpSink.ACTION_PLAYING_STATE_CHANGED);//because have char '-',cannot be use in xml
++		Intent intent = new Intent("android.bluetooth.a2dp.sink.profile.action.PLAYING_STATE_CHANGED");
+         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
+         intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
+@@ -759,7 +866,8 @@ final class A2dpSinkStateMachine extends StateMachine {
+     private class IntentBroadcastHandler extends Handler {
+ 
+         private void onConnectionStateChanged(BluetoothDevice device, int prevState, int state) {
+-            Intent intent = new Intent(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
++            //Intent intent = new Intent(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);//because have char '-',cannot be use in xml
++			Intent intent = new Intent("android.bluetooth.a2dp.sink.profile.action.CONNECTION_STATE_CHANGED");
+             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
+             intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
+             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+@@ -806,4 +914,181 @@ final class A2dpSinkStateMachine extends StateMachine {
+     private native void cleanupNative();
+     private native boolean connectA2dpNative(byte[] address);
+     private native boolean disconnectA2dpNative(byte[] address);
++
++    private OnAudioFocusChangeListener mAudioFocusListener = new OnAudioFocusChangeListener() {
++        public void onAudioFocusChange(int focusChange) {
++
++           if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
++			focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
++           //Log.d(">>>>>>>>>>AudioFocus: received AUDIOFOCUS_LOSS_TRANSIENT","focusChange");
++           // Pause playback
++           audioPause();
++           } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
++           //Log.d(">>>>>>>>>>>AudioFocus: received AUDIOFOCUS_GAIN","focusChange");
++           // Resume playback
++           audioPlay();
++           }
++        }
++    };
++
++	    class RecordThread  extends Thread{
++        @Override
++        public void run() {
++            //try {
++	        //	pcm_out = new FileOutputStream(new File("/sdcard/"+pcm_out_Num+".pcm"));
++			//	pcm_out_Num++;}
++			//	catch (FileNotFoundException e) {
++            //}
++        	for(int i=0;i<3;i++){
++				if (recorder == null) {
++		            recorder = new AudioRecord(11/*AudioSource.DEFAULT*/,
++		                currentSamprate,
++		                AudioFormat.CHANNEL_IN_STEREO,
++		                AudioFormat.ENCODING_PCM_16BIT,
++		                recorder_buf_size
++		                );
++					if(recorder == null){
++						log("**********creat recorder == null retry");
++						try {
++	                        Thread.sleep(1000);
++	                    } catch (InterruptedException e) {
++
++	                    }
++					}else
++						break;
++		        }
++        	}
++			if(recorder == null){
++				log("creat recorder fail RecordThread return");
++				return;
++			}
++			
++            recorder.startRecording();
++            while(true) {
++                if (mThreadExitFlag == true) {
++                    break;
++                }
++                try {
++                    buflen[bufferRecPoint] = recorder.read(buffer[bufferRecPoint], 0, recorder_buf_size);
++                    if (buflen[bufferRecPoint]>0) {
++						//pcm_out.write(buffer[bufferRecPoint],0,buflen[bufferRecPoint]);
++						lock.lock();
++						try{
++							bufferRecPoint ++;
++							if(bufferRecPoint>= BUFFER_LEN)
++								bufferRecPoint = 0;
++						}finally {  
++           					lock.unlock();  
++       					}
++						
++						
++
++                         //log("**********len:"+ buflen[bufferRecPoint]+" bufferRecPoint: " + bufferRecPoint);
++                    }
++
++                } catch (Exception e) {
++                    e.printStackTrace();
++                    break;
++                }
++            }
++
++			//try {
++			//	pcm_out.close();
++			//} catch (IOException e) {
++            //        }
++			log("RecordThread end");
++
++        }
++    }
++
++		class PlayerThread  extends Thread{
++	Boolean waitTbuff100 = false; 
++        @Override
++        public void run() {
++
++		    if (player == null) {
++	            player = new AudioTrack(AudioManager.STREAM_MUSIC,
++	                currentSamprate,
++	                AudioFormat.CHANNEL_OUT_STEREO,
++	                AudioFormat.ENCODING_PCM_16BIT,
++	                player_buf_size,
++	                AudioTrack.MODE_STREAM
++	                );
++        	}
++			if (player == null){
++				log("create player fail");
++				return;
++			}
++			int buffAvailLen = 0;
++            player.play();
++
++			while(true) {
++                if (mThreadExitFlag == true) {
++                    break;
++                }
++				lock.lock();
++				try{
++					if(bufferRecPoint>=100)
++						break;
++				}finally {  
++           			lock.unlock();  
++       			}  
++				   try {
++                        Thread.sleep(2);
++                    } catch (InterruptedException e) {
++
++                    }
++			}
++			
++            while(true) {
++                if (mThreadExitFlag == true) {
++                    break;
++                }
++				lock.lock();
++				try{
++				buffAvailLen = BUFFER_LEN + bufferRecPoint - bufferPlayPoint;
++				if(buffAvailLen >= BUFFER_LEN)
++					buffAvailLen -= BUFFER_LEN;
++				}finally {  
++           			lock.unlock();  
++       			}
++				//if(buffAvailLen>80)
++				//	log("^^^^^^^^^^buffAvailLen: " + buffAvailLen);
++		if(waitTbuff100 ){
++			if(buffAvailLen <100){
++				try {
++		               		Thread.sleep(1);
++		            	} catch (InterruptedException e) {
++
++		            	}
++				continue;
++			}else
++				waitTbuff100 = false;
++		}
++		if(buffAvailLen>=20 ){
++
++                try {
++
++                    if (buflen[bufferPlayPoint]>0) {
++                        player.write(buffer[bufferPlayPoint], 0, buflen[bufferPlayPoint]);
++						bufferPlayPoint ++;
++						if(bufferPlayPoint >= BUFFER_LEN)
++							bufferPlayPoint = 0;
++                    }
++					
++
++		        } catch (Exception e) {
++		            e.printStackTrace();
++		            break;
++		        }
++		}else{
++			log("^^^^^^^^^buffAvailLen<20");
++			waitTbuff100 = true;
++		}
++
++					
++            }
++			log("PlayerThread end");
++        }
++    }
+ }

@@ -1,0 +1,16 @@
+diff --git a/include/hardware_legacy/AudioSystemLegacy.h b/include/hardware_legacy/AudioSystemLegacy.h
+index ca7d1e5..9c75f23 100755
+--- a/include/hardware_legacy/AudioSystemLegacy.h
++++ b/include/hardware_legacy/AudioSystemLegacy.h
+@@ -61,8 +61,9 @@ enum audio_source {
+     AUDIO_SOURCE_CAMCORDER = 5,
+     AUDIO_SOURCE_VOICE_RECOGNITION = 6,
+     AUDIO_SOURCE_VOICE_COMMUNICATION = 7,
+-	AUDIO_SOURCE_REMOTE_SUBMIX		 = 8, /* Source for the mix to be presented remotely.	   */
+-    AUDIO_SOURCE_MAX = AUDIO_SOURCE_REMOTE_SUBMIX,
++    AUDIO_SOURCE_REMOTE_SUBMIX		 = 8, /* Source for the mix to be presented remotely.	   */
++    AUDIO_SOURCE_BLUETOOTH_A2DP = 11,
++    AUDIO_SOURCE_MAX =12,
+ 
+     AUDIO_SOURCE_LIST_END  // must be last - used to validate audio source type
+ };

@@ -1,0 +1,13 @@
+diff --git a/include/bt_target.h b/include/bt_target.h
+index b2068ee..0d929fb 100644
+--- a/include/bt_target.h
++++ b/include/bt_target.h
+@@ -168,7 +168,7 @@
+ #endif
+ 
+ #ifndef BTA_AV_SINK_INCLUDED
+-#define BTA_AV_SINK_INCLUDED FALSE
++#define BTA_AV_SINK_INCLUDED TRUE
+ #endif
+ 
+ #ifndef BTA_DISABLE_DELAY

@@ -1,0 +1,12 @@
+diff --git a/include/system/audio.h b/include/system/audio.h
+index 57e98f5..b5dba62 100755
+--- a/include/system/audio.h
++++ b/include/system/audio.h
+@@ -142,6 +142,7 @@ typedef enum {
+                                           /*  play the mix captured by this audio source.      */
+     // PEKALL FMR begin:
+     AUDIO_SOURCE_FM_RX              = 9,  // FM recording
++    AUDIO_SOURCE_BLUETOOTH_A2DP     = 11,
+     // PEKALL FMR end
+     AUDIO_SOURCE_CNT,
+     AUDIO_SOURCE_MAX                 = AUDIO_SOURCE_CNT - 1,

@@ -1,0 +1,35 @@
+diff --git a/media/java/android/media/AudioAttributes.java b/media/java/android/media/AudioAttributes.java
+index 489f552..6483aa8 100644
+--- a/media/java/android/media/AudioAttributes.java
++++ b/media/java/android/media/AudioAttributes.java
+@@ -516,6 +516,7 @@ public final class AudioAttributes implements Parcelable {
+                 case MediaRecorder.AudioSource.CAMCORDER:
+                 case MediaRecorder.AudioSource.VOICE_RECOGNITION:
+                 case MediaRecorder.AudioSource.VOICE_COMMUNICATION:
++		case 11://a2dp sink
+                     mSource = preset;
+                     break;
+                 default:
+diff --git a/media/java/android/media/MediaRecorder.java b/media/java/android/media/MediaRecorder.java
+index 81d5afe..7afe8f4 100644
+--- a/media/java/android/media/MediaRecorder.java
++++ b/media/java/android/media/MediaRecorder.java
+@@ -199,7 +199,7 @@ public class MediaRecorder
+          *  is applied.
+          */
+         public static final int VOICE_COMMUNICATION = 7;
+-
++        
+         /**
+          * Audio source for a submix of audio streams to be presented remotely.
+          * <p>
+@@ -375,7 +375,8 @@ public class MediaRecorder
+      * @see android.media.MediaRecorder.AudioSource
+      */
+     public static final int getAudioSourceMax() {
+-        return AudioSource.REMOTE_SUBMIX;
++        //return AudioSource.REMOTE_SUBMIX;
++	return 11;//a2dp sink
+     }
+ 
+     /**

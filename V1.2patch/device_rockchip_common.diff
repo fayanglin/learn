@@ -1,0 +1,19 @@
+diff --git a/audio_policy_rk30board.conf b/audio_policy_rk30board.conf
+index e5fa786..05ee6c4 100755
+--- a/audio_policy_rk30board.conf
++++ b/audio_policy_rk30board.conf
+@@ -62,6 +62,14 @@ audio_hw_modules {
+         formats AUDIO_FORMAT_PCM_16_BIT
+         devices AUDIO_DEVICE_OUT_ALL_A2DP
+       }
++    } 
++    inputs {
++      a2dp {
++        sampling_rates 44100
++        channel_masks AUDIO_CHANNEL_IN_STEREO
++        formats AUDIO_FORMAT_PCM_16_BIT
++        devices AUDIO_DEVICE_IN_BLUETOOTH_A2DP
++      }
+     }
+   }
+   usb {

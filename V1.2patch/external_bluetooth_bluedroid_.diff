@@ -1,0 +1,49 @@
+diff --git a/stack/include/hcidefs.h b/stack/include/hcidefs.h
+index 0349d6a..baadd7e 100644
+--- a/stack/include/hcidefs.h
++++ b/stack/include/hcidefs.h
+@@ -1325,6 +1325,10 @@ typedef struct
+ #define HCI_BRCM_ACL_PRIORITY_LOW           0x00
+ #define HCI_BRCM_ACL_PRIORITY_HIGH          0xFF
+ #define HCI_BRCM_SET_ACL_PRIORITY           (0x0057 | HCI_GRP_VENDOR_SPECIFIC)
++#define HCI_BRCM_SET_A2DP_PRIORITY          (0x011A | HCI_GRP_VENDOR_SPECIFIC)
++#define HCI_BRCM_ACL_PRIORITY_NORMAL        0x00
++#define HCI_BRCM_ACL_PRIORITY_A2DP          0x01
++#define HCI_BRCM_ACL_PRIORITY_A2DP_PARAM_SIZE    4
+ 
+ /* Define values for LMP Test Control parameters
+ ** Test Scenario, Hopping Mode, Power Control Mode
+diff --git a/stack/l2cap/l2c_utils.c b/stack/l2cap/l2c_utils.c
+index 77849ac..e9f5ed3 100644
+--- a/stack/l2cap/l2c_utils.c
++++ b/stack/l2cap/l2c_utils.c
+@@ -2499,7 +2499,7 @@ BOOLEAN l2cu_set_acl_priority (BD_ADDR bd_addr, UINT8 priority, BOOLEAN reset_af
+     UINT8               *pp;
+     UINT8                command[HCI_BRCM_ACL_PRIORITY_PARAM_SIZE];
+     UINT8                vs_param;
+-
++    UINT8                type_param;
+     APPL_TRACE_EVENT("SET ACL PRIORITY %d", priority);
+ 
+     /* Find the link control block for the acl channel */
+@@ -2518,13 +2518,15 @@ BOOLEAN l2cu_set_acl_priority (BD_ADDR bd_addr, UINT8 priority, BOOLEAN reset_af
+         {
+             pp = command;
+ 
+-            vs_param = (priority == L2CAP_PRIORITY_HIGH) ? HCI_BRCM_ACL_PRIORITY_HIGH : HCI_BRCM_ACL_PRIORITY_LOW;
+-
++            //vs_param = (priority == L2CAP_PRIORITY_HIGH) ? HCI_BRCM_ACL_PRIORITY_HIGH : HCI_BRCM_ACL_PRIORITY_LOW;
++	    vs_param = (priority == L2CAP_PRIORITY_HIGH) ? HCI_BRCM_ACL_PRIORITY_A2DP: HCI_BRCM_ACL_PRIORITY_NORMAL;
++            type_param = 0x01;
++            L2CAP_TRACE_WARNING("Luke: SET ACL PRIORITY %d", priority);
+             UINT16_TO_STREAM (pp, p_lcb->handle);
+             UINT8_TO_STREAM  (pp, vs_param);
+-
+-            BTM_VendorSpecificCommand (HCI_BRCM_SET_ACL_PRIORITY, HCI_BRCM_ACL_PRIORITY_PARAM_SIZE, command, NULL);
+-
++            UINT8_TO_STREAM  (pp, type_param);
++            //BTM_VendorSpecificCommand (HCI_BRCM_SET_ACL_PRIORITY, HCI_BRCM_ACL_PRIORITY_PARAM_SIZE, command, NULL);
++             BTM_VendorSpecificCommand (HCI_BRCM_SET_A2DP_PRIORITY, HCI_BRCM_ACL_PRIORITY_A2DP_PARAM_SIZE, command, NULL);
+             /* Adjust lmp buffer allocation for this channel if priority changed */
+             if (p_lcb->acl_priority != priority)
+             {
