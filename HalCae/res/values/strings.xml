@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">HalCae</string>
+	<string name="start_record">start_record</string>
+</resources>
