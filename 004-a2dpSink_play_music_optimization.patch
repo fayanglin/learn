@@ -1,0 +1,193 @@
+diff --git a/system/bt/bta/av/bta_av_act.c b/system/bt/bta/av/bta_av_act.c
+index f4321a8..2754e77 100644
+--- a/system/bt/bta/av/bta_av_act.c
++++ b/system/bt/bta/av/bta_av_act.c
+@@ -39,7 +39,7 @@
+ 
+ #define LOG_TAG "bt_bta_av"
+ #include "osi/include/log.h"
+-
++#include "bt_types.h"
+ /*****************************************************************************
+ **  Constants
+ *****************************************************************************/
+@@ -518,7 +518,9 @@ void bta_av_rc_opened(tBTA_AV_CB *p_cb, tBTA_AV_DATA *p_data)
+             break;
+         }
+     }
+-
++    a1.q_handle=p_cb->rcb[i].handle;                 
++    BTM_SetQoS( p_data->rc_conn_chg.peer_addr, &(a1), NULL );
++    APPL_TRACE_ERROR("--lfy--BTM_SetQoS");
+     i = p_data->rc_conn_chg.handle;
+     if (p_cb->rcb[i].handle == BTA_AV_RC_HANDLE_NONE)
+     {
+diff --git a/system/bt/btif/src/btif_av.c b/system/bt/btif/src/btif_av.c
+index 1f1a506..eaf653e 100644
+--- a/system/bt/btif/src/btif_av.c
++++ b/system/bt/btif/src/btif_av.c
+@@ -44,7 +44,7 @@
+ #include "gki.h"
+ #include "btu.h"
+ #include "bt_utils.h"
+-
++#include "bt_types.h"
+ /*****************************************************************************
+ **  Constants & Macros
+ ******************************************************************************/
+@@ -586,6 +586,7 @@ static BOOLEAN btif_av_state_closing_handler(btif_sm_event_t event, void *p_data
+ static BOOLEAN btif_av_state_opened_handler(btif_sm_event_t event, void *p_data)
+ {
+     tBTA_AV *p_av = (tBTA_AV*)p_data;
++    BD_ADDR remote_bd;
+     bt_bdaddr_t *paddr;
+ 
+     BTIF_TRACE_DEBUG("%s event:%s flags %x", __FUNCTION__,
+@@ -663,6 +664,9 @@ static BOOLEAN btif_av_state_opened_handler(btif_sm_event_t event, void *p_data)
+                     btif_a2dp_on_started(NULL, TRUE);
+                 /* pending start flag will be cleared when exit current state */
+             }
++           a1.q_handle=btif_av_cb.bta_handle;
++           bdcpy(remote_bd, btif_av_cb.peer_bda.address);
++           BTM_SetQoS(remote_bd, &(a1), NULL ) ;
+             btif_sm_change_state(btif_av_cb.sm_handle, BTIF_AV_STATE_STARTED);
+ 
+         } break;
+diff --git a/system/bt/hci/Android.mk b/system/bt/hci/Android.mk
+index 1ef91be..6886201 100644
+--- a/system/bt/hci/Android.mk
++++ b/system/bt/hci/Android.mk
+@@ -45,38 +45,38 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+ include $(BUILD_STATIC_LIBRARY)
+ 
+ #####################################################
+-include $(CLEAR_VARS)
++#include $(CLEAR_VARS)
+ 
+-LOCAL_C_INCLUDES := \
+-    $(LOCAL_PATH)/include \
+-    $(LOCAL_PATH)/.. \
+-    $(LOCAL_PATH)/../include \
+-    $(LOCAL_PATH)/../btcore/include \
+-    $(LOCAL_PATH)/../gki/common \
+-    $(LOCAL_PATH)/../gki/ulinux \
+-    $(LOCAL_PATH)/../osi/include \
+-    $(LOCAL_PATH)/../osi/test \
+-    $(LOCAL_PATH)/../stack/include \
+-    $(LOCAL_PATH)/../utils/include \
+-    $(bdroid_C_INCLUDES)
++#LOCAL_C_INCLUDES := \
++#    $(LOCAL_PATH)/include \
++#    $(LOCAL_PATH)/.. \
++#    $(LOCAL_PATH)/../include \
++#    $(LOCAL_PATH)/../btcore/include \
++#    $(LOCAL_PATH)/../gki/common \
++#    $(LOCAL_PATH)/../gki/ulinux \
++#    $(LOCAL_PATH)/../osi/include \
++##    $(LOCAL_PATH)/../osi/test \
++#    $(LOCAL_PATH)/../stack/include \
++#    $(LOCAL_PATH)/../utils/include \
++#    $(bdroid_C_INCLUDES)
+ 
+ 
+-LOCAL_SRC_FILES := \
+-    ../osi/test/AllocationTestHarness.cpp \
+-    ../osi/test/AlarmTestHarness.cpp \
+-    ./test/hci_hal_h4_test.cpp \
+-    ./test/hci_hal_mct_test.cpp \
+-    ./test/hci_layer_test.cpp \
+-    ./test/low_power_manager_test.cpp \
+-    ./test/packet_fragmenter_test.cpp \
+-    $(bdroid_C_INCLUDES)
++#LOCAL_SRC_FILES := \
++#    ../osi/test/AllocationTestHarness.cpp \
++#    ../osi/test/AlarmTestHarness.cpp \
++#    ./test/hci_hal_h4_test.cpp \
++#    ./test/hci_hal_mct_test.cpp \
++#    ./test/hci_layer_test.cpp \
++#    ./test/low_power_manager_test.cpp \
++#    ./test/packet_fragmenter_test.cpp \
++#    $(bdroid_C_INCLUDES)
+ 
+ 
+-LOCAL_CFLAGS := -Wall -Werror $(bdroid_CFLAGS)
+-LOCAL_MODULE := net_test_hci
+-LOCAL_MODULE_TAGS := tests
+-LOCAL_SHARED_LIBRARIES := liblog libdl
+-LOCAL_STATIC_LIBRARIES := libbt-hci libosi libcutils libbtcore
++#LOCAL_CFLAGS := -Wall -Werror $(bdroid_CFLAGS)
++#LOCAL_MODULE := net_test_hci
++#LOCAL_MODULE_TAGS := tests
++#LOCAL_SHARED_LIBRARIES := liblog libdl
++#LOCAL_STATIC_LIBRARIES := libbt-hci libosi libcutils libbtcore
+ 
+-include $(BUILD_NATIVE_TEST)
++#include $(BUILD_NATIVE_TEST)
+ endif
+diff --git a/system/bt/stack/include/bt_types.h b/system/bt/stack/include/bt_types.h
+index 6e61ade..d8147dc 100644
+--- a/system/bt/stack/include/bt_types.h
++++ b/system/bt/stack/include/bt_types.h
+@@ -366,6 +366,7 @@ typedef UINT8 ACO[ACO_LEN];                 /* Authenticated ciphering offset */
+ typedef UINT8 COF[COF_LEN];                 /* ciphering offset number */
+ 
+ typedef struct {
++    UINT8               q_handle;          /* TBD */
+     UINT8               qos_flags;          /* TBD */
+     UINT8               service_type;       /* see below */
+     UINT32              token_rate;         /* bytes/second */
+@@ -374,7 +375,7 @@ typedef struct {
+     UINT32              latency;            /* microseconds */
+     UINT32              delay_variation;    /* microseconds */
+ } FLOW_SPEC;
+-
++FLOW_SPEC a1;
+ /* Values for service_type */
+ #define NO_TRAFFIC      0
+ #define BEST_EFFORT     1
+diff --git a/system/bt/stack/include/hcidefs.h b/system/bt/stack/include/hcidefs.h
+index 9dd5c53..07c077c 100644
+--- a/system/bt/stack/include/hcidefs.h
++++ b/system/bt/stack/include/hcidefs.h
+@@ -1355,7 +1355,10 @@ typedef struct
+ #define HCI_BRCM_ACL_PRIORITY_LOW           0x00
+ #define HCI_BRCM_ACL_PRIORITY_HIGH          0xFF
+ #define HCI_BRCM_SET_ACL_PRIORITY           (0x0057 | HCI_GRP_VENDOR_SPECIFIC)
+-
++#define HCI_BRCM_SET_A2DP_PRIORITY          (0x011A | HCI_GRP_VENDOR_SPECIFIC)
++#define HCI_BRCM_ACL_PRIORITY_NORMAL        0x00
++#define HCI_BRCM_ACL_PRIORITY_A2DP          0x01
++#define HCI_BRCM_ACL_PRIORITY_A2DP_PARAM_SIZE    4
+ /* Define values for LMP Test Control parameters
+ ** Test Scenario, Hopping Mode, Power Control Mode
+ */
+diff --git a/system/bt/stack/l2cap/l2c_utils.c b/system/bt/stack/l2cap/l2c_utils.c
+index e80d16b..89f41c4 100644
+--- a/system/bt/stack/l2cap/l2c_utils.c
++++ b/system/bt/stack/l2cap/l2c_utils.c
+@@ -2494,7 +2494,7 @@ BOOLEAN l2cu_set_acl_priority (BD_ADDR bd_addr, UINT8 priority, BOOLEAN reset_af
+     UINT8               *pp;
+     UINT8                command[HCI_BRCM_ACL_PRIORITY_PARAM_SIZE];
+     UINT8                vs_param;
+-
++    UINT8                type_param;
+     APPL_TRACE_EVENT("SET ACL PRIORITY %d", priority);
+ 
+     /* Find the link control block for the acl channel */
+@@ -2513,12 +2513,13 @@ BOOLEAN l2cu_set_acl_priority (BD_ADDR bd_addr, UINT8 priority, BOOLEAN reset_af
+         {
+             pp = command;
+ 
+-            vs_param = (priority == L2CAP_PRIORITY_HIGH) ? HCI_BRCM_ACL_PRIORITY_HIGH : HCI_BRCM_ACL_PRIORITY_LOW;
++           vs_param = (priority == L2CAP_PRIORITY_HIGH) ? HCI_BRCM_ACL_PRIORITY_A2DP: HCI_BRCM_ACL_PRIORITY_NORMAL;
++            type_param = 0x01;
+ 
+             UINT16_TO_STREAM (pp, p_lcb->handle);
+             UINT8_TO_STREAM  (pp, vs_param);
+-
+-            BTM_VendorSpecificCommand (HCI_BRCM_SET_ACL_PRIORITY, HCI_BRCM_ACL_PRIORITY_PARAM_SIZE, command, NULL);
++            UINT8_TO_STREAM  (pp, type_param);
++            BTM_VendorSpecificCommand (HCI_BRCM_SET_A2DP_PRIORITY, HCI_BRCM_ACL_PRIORITY_A2DP_PARAM_SIZE, command, NULL);
+ 
+             /* Adjust lmp buffer allocation for this channel if priority changed */
+             if (p_lcb->acl_priority != priority)

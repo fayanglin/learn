@@ -1,0 +1,15 @@
+diff --git a/packages/apps/Bluetooth/src/com/android/bluetooth/btservice/AdapterService.java b/packages/apps/Bluetooth/src/com/android/bluetooth/btservice/AdapterService.java
+index 9f57964..65ac528 100644
+--- a/packages/apps/Bluetooth/src/com/android/bluetooth/btservice/AdapterService.java
++++ b/packages/apps/Bluetooth/src/com/android/bluetooth/btservice/AdapterService.java
+@@ -1846,7 +1846,9 @@ public class AdapterService extends Service {
+              for (BluetoothDevice device : bondedDevices) {
+                  DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+ 				 Log.d(TAG, "reInitProfilePriorities bondeDevice="+device+" deviceProp="+deviceProp);
+-                 initProfilePriorities(device, deviceProp.getUuids());
++                 if(deviceProp != null) {
++                     initProfilePriorities(device, deviceProp.getUuids());
++                 }
+              }
+          }
+      }
