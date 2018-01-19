@@ -1,0 +1,15 @@
+diff --git a/frameworks/base/packages/SettingsLib/src/com/android/settingslib/bluetooth/A2dpProfile.java b/frameworks/base/packages/SettingsLib/src/com/android/settingslib/bluetooth/A2dpProfile.java
+index e772db0..652ece6 100755
+--- a/frameworks/base/packages/SettingsLib/src/com/android/settingslib/bluetooth/A2dpProfile.java
++++ b/frameworks/base/packages/SettingsLib/src/com/android/settingslib/bluetooth/A2dpProfile.java
+@@ -121,7 +121,9 @@ public final class A2dpProfile implements LocalBluetoothProfile {
+         List<BluetoothDevice> sinks = getConnectedDevices();
+         if (sinks != null) {
+             for (BluetoothDevice sink : sinks) {
+-                mService.disconnect(sink);
++                if (! device.equals(sink)) {
++                    mService.disconnect(sink);
++                }
+             }
+         }
+         return mService.connect(device);
