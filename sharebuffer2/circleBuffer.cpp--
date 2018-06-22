@@ -1,0 +1,98 @@
+
+
+#include "circleBuffer.h"
+#include "stdio.h"
+#define LOG printf
+
+int WriteData(CircleBuff_Cblk_t* cblk, char* buf,unsigned len){
+
+	unsigned n=0;
+	
+	LOG("write start \n");
+
+	cblk->buffLock.lock();
+
+	while(1){
+		
+		if((cblk->writeIndex+1)%cblk->size== cblk->readIndex){
+			
+			LOG("the circle buffer is full! \n");
+			cblk->full=1;
+			cblk->freeSize=0;
+			cblk->dataAvailed=cblk->size;
+			//cblk->buffLock.unlock();
+			//return n;
+			break;
+		}
+		
+		*((char*)cblk+cblk->offset+cblk->writeIndex)=buf[n];
+		cblk->writeIndex=(cblk->writeIndex+1)%cblk->size;
+		n=n+1;
+		if(n==len){
+			
+			cblk->full =0;
+			cblk->empty =0;
+			cblk->freeSize= (cblk->writeIndex > cblk->readIndex) ?(cblk->size -(cblk->writeIndex-cblk->readIndex)) :(cblk->readIndex-cblk->writeIndex);
+			cblk->dataAvailed =cblk->size -cblk->freeSize;
+			break;
+		}
+		
+	}
+
+	cblk->buffLock.unlock();
+	LOG("write end n = %d \n",n);
+	return n;
+
+}
+
+int ReadData(CircleBuff_Cblk_t* cblk,char* buf,unsigned len){
+
+	unsigned n=0;
+	
+	LOG("read start \n");	
+	
+	cblk->buffLock.lock();
+
+	if(cblk->dataAvailed <1){
+		LOG("buffer is empty \n");
+		cblk->buffLock.unlock();
+		return -1;
+	}
+	
+	while(1){
+		buf[n] = *((char *)cblk+cblk->offset+cblk->readIndex);
+		cblk->readIndex =(cblk->readIndex+1)%cblk->size;
+
+		if(cblk->writeIndex==cblk->readIndex){
+		
+			LOG("buffer is empty!buffWriteIndex= %d buffReadIndex =%d \n ",cblk->writeIndex,cblk->readIndex);
+			cblk->empty=1;
+			cblk->freeSize =cblk->size;
+			cblk->dataAvailed =0;	
+			cblk->buffLock.unlock();
+			return n+1;
+		//break;
+		}
+		
+		n=n+1;
+		if(n==len){
+
+			cblk->empty=0;
+			cblk->full =0;
+			cblk->freeSize= (cblk->writeIndex > cblk->readIndex) ?(cblk->size -(cblk->writeIndex-cblk->readIndex)) :(cblk->readIndex-cblk->writeIndex);
+			cblk->dataAvailed =cblk->size -cblk->freeSize;
+			break;
+		}
+			
+	}
+	
+	cblk->buffLock.unlock();
+	
+	LOG("read end n = %d \n",n);
+	
+	return n;
+	
+}
+
+
+
