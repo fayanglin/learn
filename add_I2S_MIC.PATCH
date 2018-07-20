@@ -1,0 +1,932 @@
+diff --git a/kernel/arch/arm/boot/dts/rk3288-tb_8846.dts b/kernel/arch/arm/boot/dts/rk3288-tb_8846.dts
+index 02cd7ea..9967883 100755
+--- a/kernel/arch/arm/boot/dts/rk3288-tb_8846.dts
++++ b/kernel/arch/arm/boot/dts/rk3288-tb_8846.dts
+@@ -140,7 +140,27 @@
+ 			};
+ 		};
+ 	};
+-	
++
++	fpga_adc_i2s: fpga_adc_i2s {
++		compatible = "fpga-adc";
++	};
++
++	rockchip-fpga-i2s{
++		compatible = "rockchip,fpga-adc";
++		dais {
++		        dai0 {
++		                audio-codec = <&fpga_adc_i2s>;
++		                audio-controller = <&i2s>;
++		                format = "left_j";
++		                //continuous-clock;
++		                //bitclock-inversion;
++		                //frame-inversion;
++		                //bitclock-master;
++		                //frame-master;
++		        };
++		};
++	};	
++
+ 	rockchip-hdmi-spdif {
+ 		compatible = "rockchip-hdmi-spdif";
+ 		dais {
+diff --git a/kernel/arch/arm/configs/rockchip_defconfig b/kernel/arch/arm/configs/rockchip_defconfig
+index 2f404ed..5c046ad 100644
+--- a/kernel/arch/arm/configs/rockchip_defconfig
++++ b/kernel/arch/arm/configs/rockchip_defconfig
+@@ -461,8 +461,9 @@ CONFIG_SND_RK_SOC_HDMI_I2S=y
+ CONFIG_SND_RK_SOC_SPDIF_CARD=y
+ CONFIG_SND_RK_SOC_NAU8540=y
+ CONFIG_SND_RK_SOC_RT5631=y
+-CONFIG_SND_RK_SOC_RT5651=y
+-CONFIG_SND_RK_SOC_RT3224=y
++#CONFIG_SND_RK_SOC_RT5651=y
++CONFIG_SND_RK_SOC_FPGA_ADC_I2S=y
++#CONFIG_SND_RK_SOC_RT3224=y
+ CONFIG_SND_RK_SOC_RK1000=y
+ CONFIG_SND_RK_SOC_RK3036=y
+ CONFIG_SND_RK_SOC_RK312X=y
+diff --git a/kernel/sound/soc/codecs/Kconfig b/kernel/sound/soc/codecs/Kconfig
+index 99888a7..c3f3243 100644
+--- a/kernel/sound/soc/codecs/Kconfig
++++ b/kernel/sound/soc/codecs/Kconfig
+@@ -109,13 +109,14 @@ config SND_SOC_ALL_CODECS
+ 	select SND_SOC_WM8900 if I2C
+ 	select SND_SOC_RT5621 if I2C
+ 	select SND_SOC_RT5631 if I2C
+-	select SND_SOC_RT5651 if I2C
++#	select SND_SOC_RT5651 if I2C
+ 	select SND_SOC_AK4396 if SPI_MASTER
+ 	select SND_SOC_RT5631_PHONE if I2C
++	select SND_SOC_FPGA_ADC_I2S if I2C
+ 	select SND_SOC_RT5625 if I2C
+ 	select SND_SOC_RT5640 if I2C
+-	select SND_SOC_RT3261 if I2C
+-	select SND_SOC_RT3224 if I2C
++#	select SND_SOC_RT3261 if I2C
++#	select SND_SOC_RT3224 if I2C
+ 	select SND_SOC_RT5623 if I2C
+ 	select SND_SOC_RT5639 if I2C
+ 	select SND_SOC_RT5616 if I2C
+@@ -498,26 +499,29 @@ config SND_SOC_AK4396
+ config SND_SOC_RT5631
+ 	tristate
+ 
+-config SND_SOC_RT5651
+-	tristate
++#config SND_SOC_RT5651
++#	tristate
+ 
+ config SND_SOC_RT5631_PHONE
+ 	tristate
+ 
+ config SND_SOC_RT5625
+ 	tristate
+-
++	
++config SND_SOC_FPGA_ADC_I2S
++	tristate	
++	
+ config SND_SOC_RT5640
+ 	select SND_HWDEP
+ 	tristate
+ 
+-config SND_SOC_RT3224
+-	select SND_HWDEP
+-	tristate
++#config SND_SOC_RT3224
++#	select SND_HWDEP
++#	tristate
+ 
+-config SND_SOC_RT3261
+-	select SND_HWDEP
+-	tristate
++#config SND_SOC_RT3261
++#	select SND_HWDEP
++#	tristate
+ 
+ config SND_SOC_WM8903
+ 	tristate
+diff --git a/kernel/sound/soc/codecs/Makefile b/kernel/sound/soc/codecs/Makefile
+index 02ba9e4..0b84e8b 100644
+--- a/kernel/sound/soc/codecs/Makefile
++++ b/kernel/sound/soc/codecs/Makefile
+@@ -49,7 +49,7 @@ snd-soc-nau8540-objs := nau8540.o
+ snd-soc-omap-hdmi-codec-objs := omap-hdmi.o
+ snd-soc-pcm3008-objs := pcm3008.o
+ snd-soc-rt5631-objs := rt5631.o
+-snd-soc-rt5651-objs := rt5651.o rl6231.o
++#snd-soc-rt5651-objs := rt5651.o rl6231.o
+ snd-soc-sgtl5000-objs := sgtl5000.o
+ snd-soc-alc5623-objs := alc5623.o
+ snd-soc-alc5632-objs := alc5632.o
+@@ -100,6 +100,7 @@ snd-soc-wm8776-objs := wm8776.o
+ snd-soc-wm8782-objs := wm8782.o
+ snd-soc-wm8804-objs := wm8804.o
+ snd-soc-wm8900-objs := wm8900.o
++snd-soc-fpga_adc_i2s-objs := fpga_adc_i2s.o
+ snd-soc-wm8903-objs := wm8903.o
+ snd-soc-wm8904-objs := wm8904.o
+ snd-soc-wm8996-objs := wm8996.o
+@@ -134,8 +135,8 @@ snd-soc-rt5625-objs := rt5625.o
+ obj-y := rt56xx_ioctl.o
+ snd-soc-rt5639-objs := rt5639.o rt5639_ioctl.o
+ snd-soc-rt5640-objs := rt5640.o rt5640-dsp.o rt5640_ioctl.o
+-snd-soc-rt3224-objs := rt3261.o rt3261_ioctl.o rt_codec_ioctl.o
+-snd-soc-rt3261-objs := rt3261-dsp.o
++#snd-soc-rt3224-objs := rt3261.o rt3261_ioctl.o rt_codec_ioctl.o
++#snd-soc-rt3261-objs := rt3261-dsp.o
+ snd-soc-cs42l52-objs := cs42l52.o
+ snd-soc-rk1000-objs := rk1000_codec.o
+ snd-soc-rk1108-objs := rk1108_codec.o
+@@ -252,6 +253,7 @@ obj-$(CONFIG_SND_SOC_WM8776)	+= snd-soc-wm8776.o
+ obj-$(CONFIG_SND_SOC_WM8782)	+= snd-soc-wm8782.o
+ obj-$(CONFIG_SND_SOC_WM8804)	+= snd-soc-wm8804.o
+ obj-$(CONFIG_SND_SOC_WM8900)	+= snd-soc-wm8900.o
++obj-$(CONFIG_SND_SOC_FPGA_ADC_I2S)	+= snd-soc-fpga_adc_i2s.o
+ obj-$(CONFIG_SND_SOC_WM8903)	+= snd-soc-wm8903.o
+ obj-$(CONFIG_SND_SOC_WM8904)	+= snd-soc-wm8904.o
+ obj-$(CONFIG_SND_SOC_WM8996)	+= snd-soc-wm8996.o
+@@ -282,11 +284,11 @@ obj-$(CONFIG_SND_SOC_RT5512)	+= snd-soc-rt5512.o
+ obj-$(CONFIG_SND_SOC_RT5621)	+= snd-soc-rt5621.o
+ obj-$(CONFIG_SND_SOC_RT5623)	+= snd-soc-rt5623.o
+ obj-$(CONFIG_SND_SOC_RT5631)	+= snd-soc-rt5631.o
+-obj-$(CONFIG_SND_SOC_RT5651)	+= snd-soc-rt5651.o
++#obj-$(CONFIG_SND_SOC_RT5651)	+= snd-soc-rt5651.o
+ obj-$(CONFIG_SND_SOC_RT5616)	+= snd-soc-rt5616.o
+ obj-$(CONFIG_SND_SOC_RT5631_PHONE)	+= snd-soc-rt5631-phone.o
+ obj-$(CONFIG_SND_SOC_RT5625)	+= snd-soc-rt5625.o
+-obj-$(CONFIG_SND_SOC_RT3261)    += snd-soc-rt3261.o
++#obj-$(CONFIG_SND_SOC_RT3261)    += snd-soc-rt3261.o
+ obj-$(CONFIG_SND_SOC_RT3224)    += snd-soc-rt3224.o
+ obj-$(CONFIG_SND_SOC_RT5639)    += snd-soc-rt5639.o
+ obj-$(CONFIG_SND_SOC_RT5640)    += snd-soc-rt5640.o
+diff --git a/kernel/sound/soc/codecs/fpga_adc_i2s.c b/kernel/sound/soc/codecs/fpga_adc_i2s.c
+new file mode 100644
+index 0000000..7ab2f1f
+--- /dev/null
++++ b/kernel/sound/soc/codecs/fpga_adc_i2s.c
+@@ -0,0 +1,202 @@
++/*
++ * fpga_i2s.c  --  skype i2s audio for rockchip
++ *
++ * Copyright 2013 Rockship
++ * Author: chenjq <chenjq@rock-chips.com>
++ */
++
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/slab.h>
++#include <linux/of.h>
++#include <linux/of_gpio.h>
++#include <sound/soc.h>
++#include <sound/pcm.h>
++#include <sound/initval.h>
++
++
++#define AD82584F_RATES (SNDRV_PCM_RATE_32000 | \
++		       SNDRV_PCM_RATE_44100 | \
++		       SNDRV_PCM_RATE_48000 | \
++		       SNDRV_PCM_RATE_64000 | \
++		       SNDRV_PCM_RATE_88200 | \
++		       SNDRV_PCM_RATE_96000 | \
++		       SNDRV_PCM_RATE_176400 | \
++		       SNDRV_PCM_RATE_192000)
++
++#define AD82584F_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
++	 SNDRV_PCM_FMTBIT_S24_LE | \
++	 SNDRV_PCM_FMTBIT_S32_LE)
++
++
++#if 1
++#define DBG(x...) printk(KERN_INFO "fpga i2s:"x)
++#else
++#define DBG(x...) do { } while (0)
++#endif
++#if 0
++static int ad82584f_set_dai_sysclk(struct snd_soc_dai *codec_dai,
++				  int clk_id, unsigned int freq, int dir)
++{
++	return 0;
++}
++
++static int ad82584f_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
++{
++	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
++	case SND_SOC_DAIFMT_CBS_CFS:
++		break;
++	default:
++		return 0;
++	}
++
++	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_I2S:
++	case SND_SOC_DAIFMT_RIGHT_J:
++	case SND_SOC_DAIFMT_LEFT_J:
++		break;
++	default:
++		return 0;
++	}
++
++	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
++	case SND_SOC_DAIFMT_NB_NF:
++		break;
++	case SND_SOC_DAIFMT_NB_IF:
++		break;
++	default:
++		return 0;
++	}
++
++	return 0;
++}
++
++static int ad82584f_hw_params(struct snd_pcm_substream *substream,
++			     struct snd_pcm_hw_params *params,
++			     struct snd_soc_dai *dai)
++{
++	unsigned int rate;
++
++	rate = params_rate(params);
++	pr_debug("rate: %u\n", rate);
++
++	switch (params_format(params)) {
++	case SNDRV_PCM_FORMAT_S24_LE:
++	case SNDRV_PCM_FORMAT_S24_BE:
++		pr_debug("24bit\n");
++	/* fall through */
++	case SNDRV_PCM_FORMAT_S32_LE:
++	case SNDRV_PCM_FORMAT_S20_3LE:
++	case SNDRV_PCM_FORMAT_S20_3BE:
++		pr_debug("20bit\n");
++
++		break;
++	case SNDRV_PCM_FORMAT_S16_LE:
++	case SNDRV_PCM_FORMAT_S16_BE:
++		pr_debug("16bit\n");
++
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++
++/*static const struct snd_soc_dai_ops ad82584f_dai_ops = {
++	.hw_params = ad82584f_hw_params,
++	.set_sysclk = ad82584f_set_dai_sysclk,
++	.set_fmt = ad82584f_set_dai_fmt,
++};*/
++
++#endif
++struct snd_soc_dai_driver fpga_i2s_dai = {
++		.name = "rk-fpga-i2s-hifi",
++		.capture = {
++			.stream_name = "HiFi Capture",
++			.channels_min = 2,//  1,
++			.channels_max = 2,
++			.rates = (
++				SNDRV_PCM_RATE_8000|
++				SNDRV_PCM_RATE_16000|
++				SNDRV_PCM_RATE_32000 |
++				SNDRV_PCM_RATE_44100 |
++				SNDRV_PCM_RATE_48000 |
++				SNDRV_PCM_RATE_64000 |
++				SNDRV_PCM_RATE_96000 |
++				SNDRV_PCM_RATE_192000),
++			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
++				SNDRV_PCM_FMTBIT_S20_3LE |
++				SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE),
++		},
++		.playback = {
++			.stream_name = "HIFI Playback",
++			.channels_min = 2,
++			.channels_max = 8,
++			.rates = AD82584F_RATES,
++			.formats = AD82584F_FORMATS,
++		},
++		//.ops = &ad82584f_dai_ops,
++};
++
++//joe--static struct snd_soc_codec_driver soc_codec_dev_fpga_i2s;
++static struct snd_soc_codec_driver soc_codec_dev_fpga_i2s;
++
++static int rockchip_fpga_i2s_audio_probe(struct platform_device *pdev)
++{
++	int ret;
++	
++	ret = snd_soc_register_codec(&pdev->dev,
++		&soc_codec_dev_fpga_i2s,
++		&fpga_i2s_dai, 1);
++
++	printk("-------------Entered %s-------------ret=%d\n", __func__, ret);
++	return ret;
++	
++}
++
++static int rockchip_fpga_i2s_audio_remove(struct platform_device *pdev)
++{
++	snd_soc_unregister_codec(&pdev->dev);
++
++	return 0;
++}
++
++#ifdef CONFIG_OF
++static const struct of_device_id rockchip_fpga_i2s_of_match[] = {
++	{ .compatible = "fpga-adc", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, rockchip_fpga_i2s_of_match);
++#endif /* CONFIG_OF */
++
++static struct platform_driver rockchip_fpga_i2s_audio_driver = {
++	.driver	= {
++		.name	= "fpga-i2s",
++		.of_match_table = of_match_ptr(rockchip_fpga_i2s_of_match),
++	},
++	.probe = rockchip_fpga_i2s_audio_probe,
++	.remove = rockchip_fpga_i2s_audio_remove,
++};
++static int __init fpga_i2s_init(void)
++{
++	DBG("Entered %s\n", __func__);
++
++	return platform_driver_register(&rockchip_fpga_i2s_audio_driver);
++}
++
++static void __exit fpga_i2s_exit(void)
++{
++	DBG("Entered %s\n", __func__);
++
++	platform_driver_unregister(&rockchip_fpga_i2s_audio_driver);
++}
++//module_init(fpga_i2s_init);
++late_initcall(fpga_i2s_init);
++
++module_exit(fpga_i2s_exit);
++
++MODULE_DESCRIPTION("FPGA I2S Controller Driver");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:fpga-i2s");
+diff --git a/kernel/sound/soc/rockchip/Kconfig b/kernel/sound/soc/rockchip/Kconfig
+index 8c44dff..9645b17 100644
+--- a/kernel/sound/soc/rockchip/Kconfig
++++ b/kernel/sound/soc/rockchip/Kconfig
+@@ -144,14 +144,14 @@ config SND_RK_SOC_RT5631
+ 	  Say Y if you want to add support for SoC audio on rockchip
+ 	  with the RT5631.
+ 
+-config SND_RK_SOC_RT5651
+-	tristate "SoC I2S Audio support for rockchip - RT5651"
+-	depends on SND_RK_SOC
+-	select SND_RK_SOC_I2S
+-	select SND_SOC_RT5651
+-	help
+-	  Say Y if you want to add support for SoC audio on rockchip
+-	  with the RT5651.
++#config SND_RK_SOC_RT5651
++#	tristate "SoC I2S Audio support for rockchip - RT5651"
++#	depends on SND_RK_SOC
++#	select SND_RK_SOC_I2S
++#	select SND_SOC_RT5651
++#	help
++#	  Say Y if you want to add support for SoC audio on rockchip
++#	  with the RT5651.
+ 
+ config SND_RK_SOC_RT5631_PHONE
+ 	tristate "SoC I2S Audio support for rockchip(phone) - RT5631"
+@@ -196,13 +196,21 @@ config SND_RK_SOC_RT5640
+ 	help
+ 	   RT5640 is pin to pin as RT5642, but not have dsp function.
+ 
+-config SND_RK_SOC_RT3224
+-	tristate "SoC I2S Audio support for rockchip - RT3224"
++config SND_RK_SOC_FPGA_ADC_I2S
++	tristate "SoC I2S Audio support for rockchip - fpga_adc_i2s"
+ 	depends on SND_RK_SOC
+ 	select SND_RK_SOC_I2S
+-	select SND_SOC_RT3224
++	select SND_SOC_FPGA_ADC_I2S
+ 	help
+-	  RT3224 is pin to pin as RT3261, but not have dsp function.
++	  Say Y if you want to add support for SoC audio on rockchip
++	  with the fpga_adc_i2s.
++	  	  
++#config SND_RK_SOC_RT3224
++#	tristate "SoC I2S Audio support for rockchip - RT3224"
++##	select SND_RK_SOC_I2S
++#	select SND_SOC_RT3224
++#	help
++#	  RT3224 is pin to pin as RT3261, but not have dsp function.
+ 
+ config SND_RK_SOC_RT5639
+ 	tristate "SoC I2S Audio support for rockchip - RT5639"
+@@ -221,14 +229,14 @@ config SND_RK_SOC_RT5616
+ 	  Say Y if you want to add support for SoC audio on rockchip
+ 	  with the RT5616.
+ 
+-config SND_RK_SOC_RT3261
+-	tristate "SoC I2S Audio support for rockchip - RT3261"
+-	depends on SND_RK_SOC
+-	select SND_RK_SOC_I2S
+-	select SND_SOC_RT3261
+-	help
+-	  Say Y if you want to add support for SoC audio on rockchip
+-	  with the RT3261.
++#config SND_RK_SOC_RT3261
++#	tristate "SoC I2S Audio support for rockchip - RT3261"
++#	depends on SND_RK_SOC
++#	select SND_RK_SOC_I2S
++#	select SND_SOC_RT3261
++#	help
++#	  Say Y if you want to add support for SoC audio on rockchip
++#	  with the RT3261.
+ 
+ config SND_RK_SOC_WM8994
+ 	tristate "SoC I2S Audio support for rockchip - WM8994"
+diff --git a/kernel/sound/soc/rockchip/Makefile b/kernel/sound/soc/rockchip/Makefile
+index e2d3982..a1f30b2 100644
+--- a/kernel/sound/soc/rockchip/Makefile
++++ b/kernel/sound/soc/rockchip/Makefile
+@@ -16,14 +16,15 @@ snd-soc-nau8540-objs := rk_nau8540.o
+ snd-soc-wm8900-objs := rk_wm8900.o
+ snd-soc-rt5621-objs := rk_rt5621.o
+ snd-soc-rt5631-objs := rk_rt5631.o
+-snd-soc-rt5651-objs := rk_rt5651.o
++#snd-soc-rt5651-objs := rk_rt5651.o
+ snd-soc-ak4396-objs := rk_ak4396.o
+ snd-soc-rt5616-objs := rk_rt5616.o
+ snd-soc-rt5631-phone-objs := rk_rt5631_phone.o
+ snd-soc-rt5625-objs := rk_rt5625.o
+ snd-soc-rt5640-objs := rk_rt5640.o
+-snd-soc-rt3261-objs := rk_rt3261.o
+-snd-soc-rt3224-objs := rk_rt3261.o
++snd-soc-fpga_adc_i2s-objs := rk_fpga_adc_i2s.o
++#snd-soc-rt3261-objs := rk_rt3261.o
++#snd-soc-rt3224-objs := rk_rt3261.o
+ snd-soc-rt5639-objs := rk_rt5639.o
+ snd-soc-cs42l52-objs := rk_cs42l52.o
+ snd-soc-aic3111-objs := rk_aic3111.o
+@@ -54,9 +55,11 @@ obj-$(CONFIG_SND_RK_SOC_WM8988) += snd-soc-wm8988.o
+ obj-$(CONFIG_SND_RK_SOC_WM8900) += snd-soc-wm8900.o
+ obj-$(CONFIG_SND_RK_SOC_RT5621) += snd-soc-rt5621.o
+ obj-$(CONFIG_SND_RK_SOC_RT5631) += snd-soc-rt5631.o
+-obj-$(CONFIG_SND_RK_SOC_RT5651) += snd-soc-rt5651.o
++#obj-$(CONFIG_SND_RK_SOC_RT5651) += snd-soc-rt5651.o
+ obj-$(CONFIG_SND_RK_SOC_AK4396) += snd-soc-ak4396.o
+ obj-$(CONFIG_SND_RK_SOC_RT5631_PHONE) += snd-soc-rt5631-phone.o
++obj-$(CONFIG_SND_RK_SOC_FPGA_ADC_I2S) += snd-soc-fpga_adc_i2s.o
++
+ obj-$(CONFIG_SND_RK_SOC_RT5625) += snd-soc-rt5625.o
+ obj-$(CONFIG_SND_RK_SOC_RT5640) += snd-soc-rt5640.o
+ obj-$(CONFIG_SND_RK_SOC_RT3261) += snd-soc-rt3261.o
+diff --git a/kernel/sound/soc/rockchip/rk_fpga_adc_i2s.c b/kernel/sound/soc/rockchip/rk_fpga_adc_i2s.c
+new file mode 100644
+index 0000000..8a438e4
+--- /dev/null
++++ b/kernel/sound/soc/rockchip/rk_fpga_adc_i2s.c
+@@ -0,0 +1,178 @@
++/*
++ * rk_fpga_adc_i2s.c  --  HDMI i2s audio for rockchip
++ *
++ * Copyright (C) 2015 Fuzhou Rockchip Electronics Co., Ltd
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/device.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/soc.h>
++#include <sound/soc-dapm.h>
++#include <asm/io.h>
++#include <linux/of.h>
++#include <linux/of_gpio.h>
++#include "card_info.h"
++#include <linux/clk.h>
++
++#include "rk_pcm.h"
++#include "rk_i2s.h"
++
++#if 1
++#define DBG(x...) printk("rk-fpga-adc-i2s:"x)
++#else
++#define DBG(x...) do { } while (0)
++#endif
++
++
++static int fpga_i2s_hifi_hw_params(struct snd_pcm_substream *substream,
++	struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
++	unsigned int pll_out = 0, dai_fmt = rtd->dai_link->dai_fmt;
++	int div_bclk,div_mclk;
++	int ret;
++
++	/* set cpu DAI configuration */
++	ret = snd_soc_dai_set_fmt(cpu_dai, dai_fmt);
++	if (ret < 0) {
++		pr_err("%s: failed to set format for cpu dai\n", __func__);
++		return ret;
++	}
++
++	switch (params_rate(params)) {
++	case 8000:
++	case 16000:
++	case 24000:
++	case 32000:
++	case 48000:
++	case 64000: //joe--
++	case 96000:
++		pll_out = 12288000;
++		break;
++	case 11025:
++	case 22050:
++	case 44100:
++	case 88200:
++		pll_out = 11289600;
++		break;
++	case 176400:
++		pll_out = 11289600*2;
++		break;
++	case 192000:
++		pll_out = 12288000*2;
++		break;
++	default:
++		pr_err("Enter:%s, %d, Error rate=%d\n",
++			__func__, __LINE__, params_rate(params));
++		return -EINVAL;
++		break;
++	}
++
++	DBG("Enter:%s, %d, rate=%d\n",
++		__func__, __LINE__,
++		params_rate(params));
++
++  	pll_out = 12288000;//12288000;
++	div_bclk = 63;//72-55K 64-62K 48-82K 35-113K 20-186K 10-346K 1--2M;//31; //lrck
++	div_mclk = 2;
++
++	snd_soc_dai_set_sysclk(cpu_dai, 0, pll_out, 0);
++	snd_soc_dai_set_clkdiv(cpu_dai, ROCKCHIP_DIV_BCLK,div_bclk);
++	snd_soc_dai_set_clkdiv(cpu_dai, ROCKCHIP_DIV_MCLK, div_mclk);
++
++
++	DBG("Enter:%s, %d, div_bclk: %d, div_mclk: %d\n",
++		__func__, __LINE__, div_bclk, div_mclk);
++	return 0;
++}
++
++
++static struct snd_soc_ops fpga_adc_hifi_ops = {
++	.hw_params = fpga_i2s_hifi_hw_params,
++};
++
++static struct snd_soc_dai_link fpga_i2s_dai = {
++	.name = "FPGA I2S",
++	.stream_name = "FPGA PCM",
++	.codec_dai_name = "rk-fpga-i2s-hifi",
++	.ops = &fpga_adc_hifi_ops,
++};
++
++
++static struct snd_soc_card snd_soc_card_fpga_adc = {
++	.name = "RK-FPGA-I2S",
++	.dai_link = &fpga_i2s_dai,
++	.num_links = 1,
++};
++
++
++static int rockchip_fpga_i2s_audio_probe(struct platform_device *pdev)
++{
++	int ret;
++	struct snd_soc_card *card = &snd_soc_card_fpga_adc;
++
++	card->dev = &pdev->dev;
++
++	ret = rockchip_of_get_sound_card_info(card);
++	if (ret) {
++		pr_err("%s() get sound card info failed: %d\n",
++		       __func__, ret);
++		return ret;
++	}
++
++	ret = snd_soc_register_card(card);
++	if (ret)
++		pr_err("%s() register card failed: %d\n",
++		       __func__, ret);
++
++	return ret;
++}
++
++
++static int rockchip_fpga_i2s_audio_remove(struct platform_device *pdev)
++{
++	struct snd_soc_card *card = platform_get_drvdata(pdev);
++
++	snd_soc_unregister_card(card);
++
++	return 0;
++}
++
++#ifdef CONFIG_OF
++static const struct of_device_id rockchip_fpga_adc_of_match[] = {
++	{ .compatible = "rockchip,fpga-adc", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, rockchip_fpga_adc_of_match);
++#endif /* CONFIG_OF */
++
++static struct platform_driver rockchip_fpga_i2s_audio_driver = {
++	.driver = {
++		.name = "rockchip-fpga-adc",
++		.pm = &snd_soc_pm_ops,
++		.of_match_table = of_match_ptr(rockchip_fpga_adc_of_match),
++	},
++	.probe = rockchip_fpga_i2s_audio_probe,
++	.remove = rockchip_fpga_i2s_audio_remove,
++};
++
++module_platform_driver(rockchip_fpga_i2s_audio_driver);
++
++
++/* Module information */
++MODULE_AUTHOR("rockchip");
++MODULE_DESCRIPTION("ROCKCHIP FPGA ADC I2S ASoC Interface");
++MODULE_LICENSE("GPL");
+diff --git a/kernel/sound/soc/rockchip/rk_i2s.c b/kernel/sound/soc/rockchip/rk_i2s.c
+index 6b2e91d..83df678 100644
+--- a/kernel/sound/soc/rockchip/rk_i2s.c
++++ b/kernel/sound/soc/rockchip/rk_i2s.c
+@@ -63,12 +63,13 @@ struct rk_i2s_dev {
+ 	struct regmap *regmap;
+ 	bool tx_start;
+ 	bool rx_start;
+-	int xfer_mode; /* 0: i2s, 1: pcm */
+ #ifdef CLK_SET_LATER
+ 	struct delayed_work clk_delayed_work;
+ #endif
+ };
+ 
++struct  rk_i2s_dev  *fpga_i2s;
++
+ static inline struct rk_i2s_dev *to_info(struct snd_soc_dai *dai)
+ {
+ 	return snd_soc_dai_get_drvdata(dai);
+@@ -230,13 +231,17 @@ static int rockchip_i2s_set_fmt(struct snd_soc_dai *cpu_dai,
+ 
+ 	regmap_update_bits(i2s->regmap, I2S_TXCR, mask, val);
+ 
+-	mask = I2S_RXCR_IBM_MASK;
++	//mask = I2S_RXCR_IBM_MASK;
++	mask = I2S_RXCR_IBM_MASK|I2S_RXCR_SJM_MASK;
+ 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+ 	case SND_SOC_DAIFMT_RIGHT_J:
+ 		val = I2S_RXCR_IBM_RSJM;
++		val &= I2S_RXCR_SJM_R;//xia modify 2016 06 29
+ 		break;
++
+ 	case SND_SOC_DAIFMT_LEFT_J:
+ 		val = I2S_RXCR_IBM_LSJM;
++		val |= I2S_RXCR_SJM_L;
+ 		break;
+ 	case SND_SOC_DAIFMT_I2S:
+ 		val = I2S_RXCR_IBM_NORMAL;
+@@ -316,7 +321,6 @@ static int rockchip_i2s_hw_params(struct snd_pcm_substream *substream,
+ 				   val);
+ 	} else {
+ 		regmap_update_bits(i2s->regmap, I2S_RXCR,
+-				   I2S_RXCR_CSR_MASK |
+ 				   I2S_RXCR_VDW_MASK, val);
+ 	}
+ 
+@@ -434,24 +438,45 @@ static struct snd_soc_dai_ops rockchip_i2s_dai_ops = {
+ 			      SNDRV_PCM_FMTBIT_S24_LE | \
+ 			      SNDRV_PCM_FORMAT_S32_LE)
+ 
+-static struct snd_soc_dai_driver rockchip_i2s_dai = {
+-	.probe = rockchip_i2s_dai_probe,
+-	.playback = {
+-		.stream_name = "Playback",
+-		.channels_min = 2,
+-		.channels_max = 8,
+-		.rates = ROCKCHIP_I2S_RATES,
+-		.formats = ROCKCHIP_I2S_FORMATS,
++struct snd_soc_dai_driver rockchip_i2s_dai[] = {
++	{
++		.probe = rockchip_i2s_dai_probe,
++		.name = "rockchip-i2s.0",
++		.id = 0,
++		.playback = {
++			.channels_min = 2,
++			.channels_max = 8,
++			.rates = ROCKCHIP_I2S_RATES,
++			.formats = ROCKCHIP_I2S_FORMATS,
++		},
++		.capture = {
++			.channels_min = 2,
++			.channels_max = 2,
++			.rates = ROCKCHIP_I2S_RATES,
++			.formats = ROCKCHIP_I2S_FORMATS,
++		},
++		.ops = &rockchip_i2s_dai_ops,
++		.symmetric_rates = 1,
+ 	},
+-	.capture = {
+-		.stream_name = "Capture",
+-		.channels_min = 2,
+-		.channels_max = 8,
+-		.rates = ROCKCHIP_I2S_RATES,
+-		.formats = ROCKCHIP_I2S_FORMATS,
++	{
++		.probe = rockchip_i2s_dai_probe,
++		.name = "rockchip-i2s.1",
++		.id = 1,
++		.playback = {
++			.channels_min = 2,
++			.channels_max = 2,
++			.rates = ROCKCHIP_I2S_RATES,
++			.formats = ROCKCHIP_I2S_FORMATS,
++		},
++		.capture = {
++			.channels_min = 2,
++			.channels_max = 2,
++			.rates = ROCKCHIP_I2S_RATES,
++			.formats = ROCKCHIP_I2S_FORMATS,
++		},
++		.ops = &rockchip_i2s_dai_ops,
++		.symmetric_rates = 1,
+ 	},
+-	.ops = &rockchip_i2s_dai_ops,
+-	.symmetric_rates = 1,
+ };
+ 
+ static const struct snd_soc_component_driver rockchip_i2s_component = {
+@@ -562,11 +587,9 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
+ 	struct rk_i2s_dev *i2s;
+-	struct snd_soc_dai_driver *soc_dai;
+ 	struct resource *res;
+ 	void __iomem *regs;
+ 	int ret;
+-	int val;
+ 
+ 	ret = of_property_read_u32(node, "i2s-id", &pdev->id);
+ 	if (ret < 0) {
+@@ -631,6 +654,7 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
+ 	clk_prepare_enable(i2s->clk);
+ 
+ 	i2s->mclk = devm_clk_get(&pdev->dev, "i2s_mclk");
++//	printk("===i2s mclk:%d\n", i2s->mclk);
+ 	if (IS_ERR(i2s->mclk)) {
+ 		dev_info(&pdev->dev, "i2s%d has no mclk\n", pdev->id);
+ 	} else {
+@@ -677,25 +701,8 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
+ 			goto err_pm_disable;
+ 	}
+ 
+-	soc_dai = devm_kzalloc(&pdev->dev,
+-			       sizeof(*soc_dai), GFP_KERNEL);
+-	if (!soc_dai)
+-		return -ENOMEM;
+-
+-	memcpy(soc_dai, &rockchip_i2s_dai, sizeof(*soc_dai));
+-	if (!of_property_read_u32(node, "rockchip,playback-channels", &val)) {
+-		if (val >= 2 && val <= 8)
+-			soc_dai->playback.channels_max = val;
+-	}
+-
+-	if (!of_property_read_u32(node, "rockchip,capture-channels", &val)) {
+-		if (val >= 2 && val <= 8)
+-			soc_dai->capture.channels_max = val;
+-	}
+-
+-	ret = snd_soc_register_component(&pdev->dev,
+-					 &rockchip_i2s_component,
+-					 soc_dai, 1);
++	ret = snd_soc_register_component(&pdev->dev, &rockchip_i2s_component,
++					 &rockchip_i2s_dai[pdev->id], 1);
+ 
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Could not register DAI: %d\n", ret);
+@@ -709,19 +716,8 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
+ 		goto err_unregister_component;
+ 	}
+ 
+-	ret = of_property_read_u32(node, "rockchip,xfer-mode", &i2s->xfer_mode);
+-	if (ret < 0)
+-		i2s->xfer_mode = I2S_XFER_MODE;
+-
+-	if (PCM_XFER_MODE == i2s->xfer_mode) {
+-		regmap_update_bits(i2s->regmap, I2S_TXCR,
+-				   I2S_TXCR_TFS_MASK,
+-				   I2S_TXCR_TFS_PCM);
+-		regmap_update_bits(i2s->regmap, I2S_RXCR,
+-				   I2S_RXCR_TFS_MASK,
+-				   I2S_RXCR_TFS_PCM);
+-	}
+-
++	fpga_i2s = i2s;
++	
+ 	rockchip_snd_txctrl(i2s, 0);
+ 	rockchip_snd_rxctrl(i2s, 0);
+ 
+@@ -787,15 +783,6 @@ static int rockchip_i2s_resume(struct device *dev)
+ 		return ret;
+ 	ret = regmap_reinit_cache(i2s->regmap, &rockchip_i2s_regmap_config);
+ 
+-	if (PCM_XFER_MODE == i2s->xfer_mode) {
+-		regmap_update_bits(i2s->regmap, I2S_TXCR,
+-				   I2S_TXCR_TFS_MASK,
+-				   I2S_TXCR_TFS_PCM);
+-		regmap_update_bits(i2s->regmap, I2S_RXCR,
+-				   I2S_RXCR_TFS_MASK,
+-				   I2S_RXCR_TFS_PCM);
+-	}
+-
+ 	pm_runtime_put(dev);
+ 
+ 	dev_dbg(i2s->dev, "%s\n", __func__);
+@@ -803,6 +790,19 @@ static int rockchip_i2s_resume(struct device *dev)
+ }
+ #endif
+ 
++void disable_rockchip_i2s_mclk(void)
++{
++		clk_disable_unprepare(fpga_i2s->mclk);
++		printk("xyh %s() disable mclk  \n",__func__);
++}
++
++
++void enable_rockchip_i2s_mclk(void)
++{
++		clk_prepare_enable(fpga_i2s->mclk);
++		printk("xyh %s() enable mclk  \n",__func__);
++}
++
+ static const struct dev_pm_ops rockchip_i2s_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(rockchip_i2s_runtime_suspend, rockchip_i2s_runtime_resume,
+ 			   NULL)
+@@ -821,7 +821,7 @@ static struct platform_driver rockchip_i2s_driver = {
+ };
+ 
+ static int __init rockchip_i2s_init(void)
+-{
++{ 
+ 	return platform_driver_register(&rockchip_i2s_driver);
+ }
+ subsys_initcall_sync(rockchip_i2s_init);
+diff --git a/kernel/sound/soc/rockchip/rk_i2s.h b/kernel/sound/soc/rockchip/rk_i2s.h
+index 2ca1aa9..6d587e5 100644
+--- a/kernel/sound/soc/rockchip/rk_i2s.h
++++ b/kernel/sound/soc/rockchip/rk_i2s.h
+@@ -48,7 +48,6 @@
+ #define I2S_TXCR_TFS_SHIFT	5
+ #define I2S_TXCR_TFS_I2S	(0 << I2S_TXCR_TFS_SHIFT)
+ #define I2S_TXCR_TFS_PCM	(1 << I2S_TXCR_TFS_SHIFT)
+-#define I2S_TXCR_TFS_MASK	(1 << I2S_TXCR_TFS_SHIFT)
+ #define I2S_TXCR_VDW_SHIFT	0
+ #define I2S_TXCR_VDW(x)		((x - 1) << I2S_TXCR_VDW_SHIFT)
+ #define I2S_TXCR_VDW_MASK	(0x1f << I2S_TXCR_VDW_SHIFT)
+@@ -57,11 +56,9 @@
+  * RXCR
+  * receive operation control register
+ */
+-#define I2S_RXCR_CSR_SHIFT	15
+-#define I2S_RXCR_CSR(x)		(x << I2S_RXCR_CSR_SHIFT)
+-#define I2S_RXCR_CSR_MASK	(3 << I2S_RXCR_CSR_SHIFT)
+ #define I2S_RXCR_HWT		BIT(14)
+ #define I2S_RXCR_SJM_SHIFT	12
++#define I2S_RXCR_SJM_MASK	BIT(12)
+ #define I2S_RXCR_SJM_R		(0 << I2S_RXCR_SJM_SHIFT)
+ #define I2S_RXCR_SJM_L		(1 << I2S_RXCR_SJM_SHIFT)
+ #define I2S_RXCR_FBM_SHIFT	11
+@@ -78,7 +75,6 @@
+ #define I2S_RXCR_TFS_SHIFT	5
+ #define I2S_RXCR_TFS_I2S	(0 << I2S_RXCR_TFS_SHIFT)
+ #define I2S_RXCR_TFS_PCM	(1 << I2S_RXCR_TFS_SHIFT)
+-#define I2S_RXCR_TFS_MASK	(1 << I2S_RXCR_TFS_SHIFT)
+ #define I2S_RXCR_VDW_SHIFT	0
+ #define I2S_RXCR_VDW(x)		((x - 1) << I2S_RXCR_VDW_SHIFT)
+ #define I2S_RXCR_VDW_MASK	(0x1f << I2S_RXCR_VDW_SHIFT)
+@@ -228,7 +224,4 @@
+ #define I2S_CHANNEL_4	4
+ #define I2S_CHANNEL_2	2
+ 
+-#define I2S_XFER_MODE	0
+-#define PCM_XFER_MODE	1
+-
+ #endif /* __RK_I2S_H__ */
