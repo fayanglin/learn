@@ -1,0 +1,73 @@
+Platform: RK3288
+OS: Android 6.0
+Kernel: 3.10.92
+
+
+RK针对MIPI DSI的lcd配置时有两个clock, rockchip,dsi_hs_clk 和 clock-frequency.
+文件中如下:
+disp_mipi_init: mipi_dsi_init{
+            compatible = "rockchip,mipi_dsi_init";
+            rockchip,screen_init    = <1>;
+            rockchip,dsi_lane        = <4>;
+            rockchip,dsi_hs_clk        = <348>;
+            rockchip,mipi_dsi_num    = <1>;
+};
+
+disp_timings: display-timings {
+                native-mode = <&timing0>;
+                compatible = "rockchip,display-timings";
+                timing0: timing0 {
+                    screen-type = <SCREEN_MIPI>;
+                    lvds-format = <LVDS_8BIT_2>;
+                    out-face    = <OUT_P888>;
+                    clock-frequency = <58200000>;
+                    hactive = <480>;
+                    vactive = <1280>;
+                    hback-porch = <160>;
+                    hfront-porch = <160>;
+                    vback-porch = <10>;
+                    vfront-porch = <12>;
+                    hsync-len = <24>;
+                    vsync-len = <2>;
+                    hsync-active = <0>;
+                    vsync-active = <0>;
+                    de-active = <0>;
+                    pixelclk-active = <0>;
+                    swap-rb = <0>;
+                    swap-rg = <0>;
+                    swap-gb = <0>;
+            };
+};
+
+有人可能对这两个值不太清楚如何设置,而设置出错会引起显示异常,这里简要说明下:
+
+clock-frequency:
+即DCLK(dotc clock), PCLK(pixel clock).
+clock-frequency = (h_active + hfp + hbp + h_sync) * (v_active + vfp + vbp + v_sync) * fps
+厂商给的参考值是58.2MHz, 那么fps就是:
+fps = 58200000 / (480 + 160 + 160 +24) * (1280 + 12 + 10 + 2)  = 54Hz
+
+PCLK不能太大,Android支持不超过60fps.
+PCLK不能太小,小了画面刷新率会比较慢.
+
+rockchip,dsi_hs_clk:
+即每条MIPI data lane 传输速率.
+
+dsi_hs_clk = ((h_active + hfp + hbp + h_sync) * (v_active + vfp + vbp + v_sync) * fps * bpp) / lane_number
+
+这里就是:
+dsi_hs_clk = ((480 + 160 + 160 +24) * (1280 + 12 + 10 + 2) * 54 * 24) / 4 = 348136704 bps = 348 Mbps
+
+hs_clk不能太小,太小会显示灰屏,偏小会偏移.
+hs_clk不能太大,过大画面会显示条纹.
+
+
+RK文档有提到 dsi_hs_clk还需要加上100, 追踪了下源码,没看出来.
+
+另外我有实际测试其中一款屏,发现最终的值还是会有差异,不知道这是为什么.
+
+
+
+顺便说下, 由于MIPI DSI上升沿和下降沿都可以发送数据,所以
+MIPI CLK Lane * 2 = MIPI DATA Lane
+在测量的时候, 要注意MIPI DSI CLK Lane的时钟速率会慢一倍.
